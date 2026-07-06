@@ -75,4 +75,86 @@ summary_table <- phone |>
                  rename_with(~ user_cat_var_title,
                              "get(user_cat_var)")
 
+# VISUAL SUMMARIES
+# bar chart for median data usage by os
+
+os_bar_data <- phone |>
+               group_by(os) |>
+               select(os, data_usage) |>
+               summarize(median = median(data_usage))
+os_bar <- ggplot(os_bar_data, aes(x = os,
+                            y = median)) +
+          geom_bar(stat = "identity") +
+          labs(title = "Median Data Usage by Operating System",
+               subtitle = "Measured in MB/Day",
+               x = "Operating System",
+               y = "MB/Day") +
+          theme_minimal()
+
+os_bar
+
+# SBS Bar chart for mean app usage time by operating system
+sbs_bar_data <- phone |>
+                group_by(os, get(user_cat_var)) |>
+                summarize(mean = mean(app_usage)) |>
+                rename_with(~ user_cat_var,
+                            "get(user_cat_var)")
+
+sbs_bar <- ggplot(sbs_bar_data, aes(x = os, y = mean, fill = get(user_cat_var))) +
+           geom_bar(stat = "identity", position = position_dodge()) +
+           labs(title = "Mean Daily Usage Time by Operating System",
+                subtitle = "Measured in mins/day",
+                x = "Operating System",
+                y = "Daily Usage (mins)",
+                fill = user_cat_var_title) +
+           theme_minimal()
+
+sbs_bar
+
+# Density plot for screen time
+density_plot <- ggplot(phone, aes(x = screen_on_time,
+                                  group = get(user_cat_var),
+                                  fill = get(user_cat_var))) +
+                geom_density(alpha = 0.4) +
+                labs(title = "Distribution of Screen On Time",
+                     subtitle = paste0("By ", user_cat_var,
+                                       ", measured in hours per day"),
+                     x = "Screen On Time",
+                     y = "Density",
+                     fill = user_cat_var_title) +
+                theme_minimal()
+
+density_plot
+
+# Histogram for number of apps installed
+histogram <- ggplot(phone, aes(x = apps_installed, 
+                               fill = get(user_cat_var))) +
+             geom_histogram(bins = 10, alpha = 0.7) +
+             labs(title = "Number of Apps Installed",
+                  x = "Number of Apps Installed",
+                  y = "Number in Dataset",
+                  fill = user_cat_var_title) +
+             theme_minimal()
+
+histogram
+
+# Scatter plot for app usage time vs. Data usage
+scatter <- ggplot(phone, aes(x = app_usage,
+                             y = data_usage)) +
+           geom_point() + 
+           labs(title = "Daily Data Usage by Daily App Usage",
+                subtitle = paste("Faceted by", user_cat_var),
+                x = "App Usage (Mins/day)",
+                y = "Data Usage (MB/day)",) +
+           theme_minimal() +
+           facet_wrap(~ get(user_cat_var))
+
+scatter
+
+
+
+
+
+
+
 
