@@ -30,27 +30,27 @@ numeric_vars <- c("Daily App Usage" = "app_usage",
                   "Apps Installed" = "apps_installed")
 
 ui <- fluidPage(
-  theme = bs_theme(),  # optional
+  theme = bs_theme(),
   titlePanel("Phone Usage Data Explorer"),
   
   fluidRow(
-    # Sidebar (persistent)
+    # SIDEBAR
     column(
       width = 3,
       wellPanel(
         h4("Filtering Data"),
         
-        # user age radio button
-        radioButtons("age_subset",
-                     label = "User Age Range",
-                     choices = c(levels(phone$age), "All"),
-                     selected = "All"),
+        # user age checkboxes
+        checkboxGroupInput("age_subset",
+                           label = "User Age Range",
+                           choices = levels(phone$age),
+                           selected = levels(phone$age)),
         
-        # user gender radio button
-        radioButtons("gender_subset",
-                     label = "User Gender",
-                     choices = c(levels(phone$gender), "All"),
-                     selected = "All"),
+        # user gender checkboxes
+        checkboxGroupInput("gender_subset",
+                           label = "User Gender",
+                           choices = levels(phone$gender),
+                           selected = levels(phone$gender)),
         
         # dropdown for numeric variable 1
         selectInput("filter_var_1",
@@ -78,7 +78,7 @@ ui <- fluidPage(
       )
     ),
     
-    # Main area with tabs (changes with tab)
+    # main panel
     column(
       width = 9,
       navset_tab(
@@ -86,7 +86,10 @@ ui <- fluidPage(
         selected = "About App",
         
         tabPanel("Raw Data",
-          h4("Tab 1 content")
+          h4("Tab 1 content"),
+          
+          #renderDataTable(output$phone)
+          
         ),
         
         tabPanel("Data Exploration",
@@ -124,7 +127,7 @@ ui <- fluidPage(
                 </p>
                 
                 <div>
-                  <img src="IMAGE_URL_HERE" alt="App screenshot" />
+                  <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fthumbs.dreamstime.com%2Fb%2Fgroup-young-people-using-mobile-phone-together-city-street-millennial-student-friends-enjoying-social-media-content-314139406.jpg&f=1&nofb=1&ipt=ee70e0f9b8f391cda07793e564edc871a2512f7d3f181f28639f04ca6d852db4" alt="App screenshot" />
                 </div>'
                ),
         )
@@ -167,6 +170,10 @@ server <- function(input, output, session) {
       shinyalert(title = "Select two different filtering variables!")
       updateSelectInput(session, "filter_var_2", selected = "")
     }
+  })
+  
+  phone_filter <- eventReactive(input$filter_button, {
+
   })
   
 }
