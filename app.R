@@ -22,7 +22,7 @@ phone <- phone_raw |>
          "behavior_class" = "User.Behavior.Class") |>
   mutate(age = ifelse(age <= 29, "18-29", 
                       ifelse(age <= 45, "30-45", "45+"))) |>
-  mutate(across(c(os, gender, age), factor)) |>
+  mutate(across(c(os, gender, age, behavior_class), factor)) |>
   mutate(age, age = fct_relevel(age, "18-29", "30-45", "45+"))
 
 numeric_vars <- c("Daily App Usage" = "app_usage",
@@ -86,12 +86,13 @@ ui <- fluidPage(
           selectInput("grp_var",
                       label = "Grouping Variable",
                       choices = c("Age" = "age",
-                                  "Gender" = "gender")),
+                                  "Gender" = "gender",
+                                  "User Behavior Class" = "behavior_class")),
           
           # toggle for showing numeric summaries
           checkboxInput("show_num_summaries",
                         "Show Numeric Summaries",
-                        value = FALSE),
+                        value = TRUE),
           
           # toggle for showing graphs
           checkboxInput("show_vis_summaries",
@@ -122,24 +123,40 @@ ui <- fluidPage(
         tabPanel("Data Exploration",
           value = "data_exploration",
           
-          # show numeric summaries if requested
-          conditionalPanel('input.show_num_summaries',
-             tableOutput("os_distribution"),
-             tableOutput("os_two_way"),
-             DT::DTOutput("sum_table")
-          ),
-          
-          # show graphs if requested
-          conditionalPanel('input.show_vis_summaries',
-            plotOutput("data_bar"),
-            plotOutput("os_usage_bar"),
-            plotOutput("density"),
-            plotOutput("histogram"),
-            plotOutput("scatter"),
-            plotOutput("boxplot"),
-            plotOutput("corrmap")
-                           )
-        ),
+          column(12, card(
+            headerPanel("Results"),
+            card_body(
+              conditionalPanel(
+                "input.show_num_summaries",
+                
+                fluidRow(
+                  column(2, card(card_body(tableOutput("os_distribution")))),
+                  column(4, card(card_body(tableOutput("os_two_way")))),
+                  column(6, card(card_body(DT::DTOutput("sum_table"))))
+                )
+              ),
+              
+              conditionalPanel(
+                "input.show_vis_summaries",
+                
+                fluidRow(
+                  column(4, card(card_body(plotOutput("data_bar")))),
+                  column(4, card(card_body(plotOutput("os_usage_bar")))),
+                  column(4, card(card_body(plotOutput("density")))),
+                ),
+                fluidRow(
+                  column(6, card(card_body(plotOutput("histogram")))),
+                  column(6, card(card_body(plotOutput("scatter")))),
+                ),
+                fluidRow(
+                  column(6, card(card_body(plotOutput("boxplot")))),
+                  column(6, card(card_body(plotOutput("corrmap"))))
+                )
+              )
+            ),
+          )
+        )),
+        
         
         tabPanel("About App",
           value = "about",
@@ -265,10 +282,12 @@ server <- function(input, output, session) {
   # update user cat var value
   observeEvent(input$grp_var, {
     req(input$grp_var)
-    
-    user_cat$title <- str_to_title(input$grp_var)
+      
+    user_cat$title <- str_to_title(str_replace_all(input$grp_var, pattern = "_", 
+                                                   replacement = " "))
     user_cat$sym <- sym(input$grp_var)
-    user_cat$lower <- str_to_lower(input$grp_var)
+    user_cat$lower <- str_to_lower(str_replace_all(input$grp_var, pattern = "_", 
+                                                   replacement = " "))
   }, ignoreNULL = FALSE)
   
   # VISUAL SUMMARIES:
@@ -287,11 +306,12 @@ server <- function(input, output, session) {
     
     data_bar_plot <- ggplot(data_bar_data, aes(x = !!user_cat$sym, y = median,
                                                fill = !!user_cat$sym)) +
-      geom_bar(stat = "identity") +
+      geom_bar(stat = "identity", position = position_dodge()) +
       labs(title = data_bar_title,
            subtitle = "Measured in MB/Day",
            x = user_cat$title,
-           y = "MB/Day") +
+           y = "MB/Day",
+           fill = user_cat$title) +
       theme_minimal()
     
     data_bar_plot
@@ -308,7 +328,7 @@ server <- function(input, output, session) {
     
     sbs_bar_plot <- ggplot(sbs_bar_data, aes(x = os, y = mean, fill = !!user_cat$sym)) +
                     geom_bar(stat = "identity", position = position_dodge()) +
-                    labs(title = "Mean Daily Usage Time by Operating System",
+                    labs(title = "Average Daily App Usage by OS",
                          subtitle = "Measured in mins/day",
                          x = "Operating System",
                          y = "Daily Usage (mins)",
@@ -361,7 +381,7 @@ server <- function(input, output, session) {
            x = "App Usage (Mins/day)",
            y = "Data Usage (MB/day)",) +
       theme_minimal() +
-      facet_wrap(~ get(user_cat$lower))
+      facet_wrap(~ get(input$grp_var))
     
     scatter
   })
@@ -455,9 +475,8 @@ server <- function(input, output, session) {
         rename("Variable" = "num_var",
                "Mean" = "mean",
                "Median" = "med",
-               "Std. Dev." = "sd") |>
-        rename_with(~ user_cat$title,
-                    user_cat$lower)
+               "Std. Dev." = "sd")
+    names(summary_table)[1] <- user_cat$title
     
     summary_table
   })
