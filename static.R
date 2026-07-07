@@ -97,21 +97,20 @@ os_bar
 
 # SBS Bar chart for mean app usage time by operating system
 sbs_bar_data <- phone |>
-                group_by(os, get(user_cat_var)) |>
-                summarize(mean = mean(app_usage)) |>
-                rename_with(~ user_cat_var,
-                            "get(user_cat_var)")
+                select(os, !!user_cat$sym, app_usage) |>
+                group_by(os, !!user_cat$sym) |>
+                summarize(mean = mean(app_usage))
 
-sbs_bar <- ggplot(sbs_bar_data, aes(x = os, y = mean, fill = get(user_cat_var))) +
-           geom_bar(stat = "identity", position = position_dodge()) +
-           labs(title = "Mean Daily Usage Time by Operating System",
-                subtitle = "Measured in mins/day",
-                x = "Operating System",
-                y = "Daily Usage (mins)",
-                fill = user_cat_var_title) +
-           theme_minimal()
+sbs_bar_plot <- ggplot(sbs_bar_data, aes(x = os, y = mean, fill = !!user_cat$sym)) +
+                geom_bar(stat = "identity", position = position_dodge()) +
+                labs(title = "Mean Daily Usage Time by Operating System",
+                     subtitle = "Measured in mins/day",
+                     x = "Operating System",
+                     y = "Daily Usage (mins)",
+                     fill = user_cat$title) +
+                theme_minimal()
 
-sbs_bar
+sbs_bar_plot
 
 # Density plot for screen time
 density_plot <- ggplot(phone, aes(x = screen_on_time,

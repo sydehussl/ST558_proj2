@@ -87,8 +87,14 @@ ui <- fluidPage(
                       choices = c("Age" = "age",
                                   "Gender" = "gender")),
           
+          # toggle for showing numeric summaries
           checkboxInput("show_num_summaries",
                         "Show Numeric Summaries",
+                        value = FALSE),
+          
+          # toggle for showing graphs
+          checkboxInput("show_vis_summaries",
+                        "Show Graphs + Plots",
                         value = TRUE)
         )
       )
@@ -99,7 +105,7 @@ ui <- fluidPage(
       width = 9,
       navset_tab(
         id = "main_tabs",
-        selected = "raw_data",
+        selected = "data_exploration",
         
         tabPanel("Raw Data",
           value = "raw_data",
@@ -114,11 +120,19 @@ ui <- fluidPage(
         
         tabPanel("Data Exploration",
           value = "data_exploration",
+          
+          # show numeric summaries if requested
           conditionalPanel('input.show_num_summaries',
              tableOutput("os_distribution"),
              tableOutput("os_two_way"),
              DT::DTOutput("sum_table")
           ),
+          
+          # show graphs if requested
+          conditionalPanel('input.show_vis_summaries',
+            plotOutput("data_bar"),
+            plotOutput("os_usage_bar")
+                           )
         ),
         
         tabPanel("About App",
@@ -252,7 +266,49 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
   
   # VISUAL SUMMARIES:
+  output$data_bar <- renderPlot({
+    req(phone_filter())
+    
+    data_bar_title <- paste("Median Data Usage by",
+                            user_cat$title)
+    
+    # not gpp approved
+    data_bar_data <- phone_filter() |>
+                     group_by(!!user_cat$sym) |>
+                     select(!!user_cat$sym, data_usage) |>
+                     summarize(median = median(data_usage))
+    
+    data_bar_plot <- ggplot(data_bar_data, aes(x = !!user_cat$sym, y = median,
+                                               fill = !!user_cat$sym)) +
+      geom_bar(stat = "identity") +
+      labs(title = data_bar_title,
+           subtitle = "Measured in MB/Day",
+           x = user_cat$title,
+           y = "MB/Day") +
+      theme_minimal()
+    
+    data_bar_plot
+  })
   
+  output$os_usage_bar <- renderPlot({
+    req(phone_filter())
+    
+    sbs_bar_data <- phone_filter() |>
+                    select(os, !!user_cat$sym, app_usage) |>
+                    group_by(os, !!user_cat$sym) |>
+                    summarize(mean = mean(app_usage))
+    
+    sbs_bar_plot <- ggplot(sbs_bar_data, aes(x = os, y = mean, fill = !!user_cat$sym)) +
+                    geom_bar(stat = "identity", position = position_dodge()) +
+                    labs(title = "Mean Daily Usage Time by Operating System",
+                         subtitle = "Measured in mins/day",
+                         x = "Operating System",
+                         y = "Daily Usage (mins)",
+                         fill = user_cat$title) +
+                    theme_minimal()
+    
+    sbs_bar_plot
+  })
   
   
   # NUMERIC SUMMARIES:
