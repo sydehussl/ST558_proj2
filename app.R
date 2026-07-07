@@ -74,7 +74,16 @@ ui <- fluidPage(
         
         # action button for subsetting data
         actionButton("filter_button",
-                     "Filter Data!")
+                     "Filter Data!"),
+        
+        # conditional panel for data explr. tab
+        conditionalPanel(
+          condition = "input.main_tabs == 'data_exploration'",
+          h4("Add a grouping variable"),
+          selectInput("grp_var",
+                      label = "Grouping Variable",
+                      choices = c("Age", "Gender"))
+        )
       )
     ),
     
@@ -83,17 +92,26 @@ ui <- fluidPage(
       width = 9,
       navset_tab(
         id = "main_tabs",
-        selected = "Raw Data",
+        selected = "raw_data",
         
         tabPanel("Raw Data",
-          DT::DTOutput("phone_table")
+          value = "raw_data",
+          
+          # render table
+          DT::DTOutput("phone_table"),
+          
+          # render download button below table cuz it looks better
+          downloadButton("download_table",
+                         "Download as .CSV")
         ),
         
         tabPanel("Data Exploration",
-          h4("Tab 2 content")
+          value = "data_exploration",
+          h2("Tab 2 content")
         ),
         
         tabPanel("About App",
+          value = "about",
           HTML('<h2>This app allows users to browse a dataset of synthetic phone usage behavior.</h2>
                 <p>
                   The dataset is from
@@ -195,12 +213,18 @@ server <- function(input, output, session) {
   
   # filtered data table obj
   output$phone_table <- DT::renderDataTable({
-    if(is.null(input$filter_button)) {
-      phone
-    } else {
-      phone_filter()
-    }
+    phone_filter()
   })
+  
+  # download button
+  output$download_table <- downloadHandler(
+    filename = "phone_data.csv",
+    content = function(file) {
+      write.csv(phone_filter(), file)
+    }
+  )
+  
+  
   
 }
 
