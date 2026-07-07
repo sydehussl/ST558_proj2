@@ -3,6 +3,7 @@ suppressPackageStartupMessages(library(tidyverse))
 library(forcats)
 library(shinyalert)
 library(bslib)
+library(reshape2)
 
 # import data
 phone_raw <- read.csv("user_behavior_dataset.csv")
@@ -131,7 +132,12 @@ ui <- fluidPage(
           # show graphs if requested
           conditionalPanel('input.show_vis_summaries',
             plotOutput("data_bar"),
-            plotOutput("os_usage_bar")
+            plotOutput("os_usage_bar"),
+            plotOutput("density"),
+            plotOutput("histogram"),
+            plotOutput("scatter"),
+            plotOutput("boxplot"),
+            plotOutput("corrmap")
                            )
         ),
         
@@ -266,6 +272,7 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
   
   # VISUAL SUMMARIES:
+  # bar plot for data usage
   output$data_bar <- renderPlot({
     req(phone_filter())
     
@@ -290,6 +297,7 @@ server <- function(input, output, session) {
     data_bar_plot
   })
   
+  # sbs bar plot for app usage time
   output$os_usage_bar <- renderPlot({
     req(phone_filter())
     
@@ -308,6 +316,94 @@ server <- function(input, output, session) {
                     theme_minimal()
     
     sbs_bar_plot
+  })
+  
+  # density plot for screen on time
+  output$density <- renderPlot({
+    req(phone_filter())
+    
+    density_plot <- ggplot(phone_filter(), aes(x = screen_on_time,
+                                      group = !!user_cat$sym,
+                                      fill = !!user_cat$sym)) +
+      geom_density(alpha = 0.4) +
+      labs(title = "Distribution of Screen On Time",
+           subtitle = paste0("By ", user_cat$lower,
+                             ", measured in hours per day"),
+           x = "Screen On Time",
+           y = "Density",
+           fill = user_cat$title) +
+      theme_minimal()
+    
+    density_plot
+  })
+  
+  # histogram of number of apps installed
+  output$histogram <- renderPlot({
+    histogram <- ggplot(phone, aes(x = apps_installed, 
+                                   fill = !!user_cat$sym)) +
+      geom_histogram(bins = 10, alpha = 0.7) +
+      labs(title = "Number of Apps Installed",
+           x = "Number of Apps Installed",
+           y = "Number in Dataset",
+           fill = user_cat$title) +
+      theme_minimal()
+    
+    histogram
+  })
+  
+  # scatter plot for app usage vs data usage
+  output$scatter <- renderPlot({
+    scatter <- ggplot(phone_filter(), aes(x = app_usage,
+                                          y = data_usage)) +
+      geom_point() + 
+      labs(title = "Daily Data Usage by Daily App Usage",
+           subtitle = paste("Faceted by", user_cat$title),
+           x = "App Usage (Mins/day)",
+           y = "Data Usage (MB/day)",) +
+      theme_minimal() +
+      facet_wrap(~ get(user_cat$lower))
+    
+    scatter
+  })
+  
+  # box plot of SOT by age
+  output$boxplot <- renderPlot({
+    boxplot <- ggplot(phone_filter(), aes(x = !!user_cat$sym,
+                                          fill = !!user_cat$sym,
+                                          y = screen_on_time)) +
+      geom_boxplot() +
+      labs(title = "Screen on Time",
+           subtitle = paste("By", user_cat$title),
+           x = user_cat$title,
+           y = "Screen on Time (Hours/day)",
+           fill = user_cat$title) +
+      theme_minimal() +
+      scale_y_continuous(breaks = seq(0, 13, by = 1))
+    
+    boxplot
+  })
+  
+  # correlation heatmap
+  output$corrmap <- renderPlot({
+    req(phone_filter())
+    
+    corr_df <- phone_filter() |>
+               select(all_of(numeric_vars)) |>
+               cor() |>
+               round(2) |>
+               melt()
+    
+    heatmap <- ggplot(corr_df, aes(x = Var1,
+                                   y = Var2,
+                                   fill = value)) +
+      geom_tile() +
+      geom_text(aes(Var2, Var1, label = value), color = "white", size = 8) +
+      labs(title = "Correlation Between Numeric Variables",
+           x = NULL,
+           y = NULL,
+           fill = "Correlation")
+    
+    heatmap
   })
   
   
