@@ -22,7 +22,7 @@ phone <- phone_raw |>
   mutate(age = ifelse(age <= 29, "18-29", 
                       ifelse(age <= 45, "30-45", "45+"))) |>
   mutate(across(c(os, gender, age), factor)) |>
-  mutate(age, fct_relevel(age, "18-29", "30-45", "45+"))
+  mutate(age, age = fct_relevel(age, "18-29", "30-45", "45+"))
 
 numeric_vars <- c("Daily App Usage" = "app_usage",
                   "Screen On Time (hours/day)" = "screen_on_time",
@@ -83,13 +83,10 @@ ui <- fluidPage(
       width = 9,
       navset_tab(
         id = "main_tabs",
-        selected = "About App",
+        selected = "Raw Data",
         
         tabPanel("Raw Data",
-          h4("Tab 1 content"),
-          
-          #renderDataTable(output$phone)
-          
+          DT::DTOutput("phone_table")
         ),
         
         tabPanel("Data Exploration",
@@ -172,8 +169,37 @@ server <- function(input, output, session) {
     }
   })
   
+  # filtered data frame reactive val
   phone_filter <- eventReactive(input$filter_button, {
-
+    filtered <- phone |>
+                  filter(age %in% input$age_subset, gender %in% input$gender_subset)
+    
+    if(input$filter_var_1 != "") {
+      var_1 <- sym(input$filter_var_1)
+      
+      filtered <- filtered |>
+                  filter(!!var_1 > input$range_var_1[1], 
+                         !!var_1 < input$range_var_1[2])
+    }
+    
+    if(input$filter_var_2 != "") {
+      var_2 <- sym(input$filter_var_2)
+      
+      filtered <- filtered |>
+        filter(!!var_2 > input$range_var_2[1], 
+               !!var_2 < input$range_var_2[2])
+    }
+    
+    filtered
+  }, ignoreNULL = FALSE)
+  
+  # filtered data table obj
+  output$phone_table <- DT::renderDataTable({
+    if(is.null(input$filter_button)) {
+      phone
+    } else {
+      phone_filter()
+    }
   })
   
 }
