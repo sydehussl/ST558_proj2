@@ -80,9 +80,16 @@ ui <- fluidPage(
         conditionalPanel(
           condition = "input.main_tabs == 'data_exploration'",
           h4("Add a grouping variable"),
+          
+          # dropdown for grouping variable
           selectInput("grp_var",
                       label = "Grouping Variable",
-                      choices = c("Age", "Gender"))
+                      choices = c("Age" = "age",
+                                  "Gender" = "gender")),
+          
+          checkboxInput("show_num_summaries",
+                        "Show Numeric Summaries",
+                        value = TRUE)
         )
       )
     ),
@@ -107,7 +114,11 @@ ui <- fluidPage(
         
         tabPanel("Data Exploration",
           value = "data_exploration",
-          h2("Tab 2 content")
+          conditionalPanel('input.show_num_summaries',
+             tableOutput("os_distribution"),
+             tableOutput("os_two_way"),
+             DT::DTOutput("sum_table")
+          ),
         ),
         
         tabPanel("About App",
@@ -224,8 +235,80 @@ server <- function(input, output, session) {
     }
   )
   
+  # user categorical variable reactive value
+  user_cat <- reactiveValues(
+    title = NULL,
+    var_sym = NULL,
+    lower = NULL
+  )
+  
+  # update user cat var value
+  observeEvent(input$grp_var, {
+    req(input$grp_var)
+    
+    user_cat$title <- str_to_title(input$grp_var)
+    user_cat$sym <- sym(input$grp_var)
+    user_cat$lower <- str_to_lower(input$grp_var)
+  }, ignoreNULL = FALSE)
+  
+  # VISUAL SUMMARIES:
   
   
+  
+  # NUMERIC SUMMARIES:
+  # one way table for os version
+  output$os_distribution <- renderTable({
+    req(phone_filter())
+    
+    phone_os <- phone_filter() |>
+                pull(os) |>
+                table() |>
+                as.data.frame()
+    
+    names(phone_os) <- c("Phone OS", "Count")
+    
+    phone_os
+  })
+  
+  # two way table for os version + group var
+  output$os_two_way <- renderTable({
+    req(phone_filter(), input$grp_var)
+    
+    phone_os_two <- phone_filter() |>
+                    select(os, !!user_cat$sym) |>
+                    table() |>
+                    as.data.frame()
+    
+    names(phone_os_two) <- c("Phone OS", user_cat$title, "Count")
+    
+    phone_os_two
+  })
+  
+  # summary table
+  output$sum_table <- DT::renderDataTable({
+    req(phone_filter(), input$grp_var)
+    
+    summary_table <- phone_filter() |>
+        group_by(!!user_cat$sym) |>
+        summarize(across(all_of(numeric_vars), .fns = list("mean" = mean,
+                                                           "med" = median,
+                                                           "sd" = sd))) |>
+        mutate(across(-1, ~ round(.x, 2))) |>
+        pivot_longer(cols = -1,
+                     names_to = c("num_var", ".value"),
+                     names_pattern = "^(.*)_(mean|med|sd)$",
+                     values_to = "value") |>
+        mutate(num_var = str_to_title(str_replace_all(num_var, pattern = "_", 
+                                                      replacement = " "))) |>
+        rename("Variable" = "num_var",
+               "Mean" = "mean",
+               "Median" = "med",
+               "Std. Dev." = "sd") |>
+        rename_with(~ user_cat$title,
+                    user_cat$lower)
+    
+    summary_table
+  })
 }
 
 shinyApp(ui = ui, server = server)

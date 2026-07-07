@@ -63,7 +63,8 @@ summary_table <- phone |>
                  summarize(across(all_of(numeric_vars), .fns = list("mean" = mean,
                                                                     "med" = median,
                                                                     "sd" = sd))) |>
-                 pivot_longer(cols = 2:ncol(summary_tab),
+                 mutate(across(-1, ~ round(.x, 2))) |>
+                 pivot_longer(cols = -1,
                               names_to = c("num_var", ".value"),
                               names_pattern = "^(.*)_(mean|med|sd)$",
                               values_to = "value") |>
