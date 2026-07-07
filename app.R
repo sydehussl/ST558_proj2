@@ -2,6 +2,7 @@ library(shiny)
 suppressPackageStartupMessages(library(tidyverse))
 library(forcats)
 library(shinyalert)
+library(bslib)
 
 # import data
 phone_raw <- read.csv("user_behavior_dataset.csv")
@@ -28,51 +29,106 @@ numeric_vars <- c("Daily App Usage" = "app_usage",
                   "Battery Drain (mAh/day)" = "battery_drain",
                   "Apps Installed" = "apps_installed")
 
-
 ui <- fluidPage(
+  theme = bs_theme(),  # optional
   titlePanel("Phone Usage Data Explorer"),
   
-  sidebarLayout(
-    sidebarPanel(
-      # user age radio button
-      radioButtons("age_subset",
-                   label = "User Age Range",
-                   choices = c(levels(phone$age), "All"),
-                   selected = "All"),
-      
-      # user gender radio button
-      radioButtons("gender_subset",
-                   label = "User Gender",
-                   choices = c(levels(phone$gender), "All"),
-                   selected = "All"),
-      
-      # dropdown for numeric variable 1
-      selectInput("filter_var_1",
-                  label = "Filter by numeric variable",
-                  choices = c("Select a variable" = "", numeric_vars)),
-      
-      # slider for filter var 1
-      conditionalPanel('input.filter_var_1 !== ""',
-        uiOutput("range_var_1_ui")
-      ),
-      
-      # dropdown for numeric variable 2
-      selectInput("filter_var_2",
-                  label = "Filter by numeric variable",
-                  choices = c("Select a variable" = "", numeric_vars)),
-      
-      # slider for filter var 2
-      conditionalPanel('input.filter_var_2 !== ""',
-                       uiOutput("range_var_2_ui")
-      ),
-      
-      # action button for subsetting data
-      actionButton("filter_button",
-                   "Filter Data!")
+  fluidRow(
+    # Sidebar (persistent)
+    column(
+      width = 3,
+      wellPanel(
+        h4("Filtering Data"),
+        
+        # user age radio button
+        radioButtons("age_subset",
+                     label = "User Age Range",
+                     choices = c(levels(phone$age), "All"),
+                     selected = "All"),
+        
+        # user gender radio button
+        radioButtons("gender_subset",
+                     label = "User Gender",
+                     choices = c(levels(phone$gender), "All"),
+                     selected = "All"),
+        
+        # dropdown for numeric variable 1
+        selectInput("filter_var_1",
+                    label = "Filter by numeric variable",
+                    choices = c("Select a variable" = "", numeric_vars)),
+        
+        # slider for filter var 1
+        conditionalPanel('input.filter_var_1 !== ""',
+                         uiOutput("range_var_1_ui")
+        ),
+        
+        # dropdown for numeric variable 2
+        selectInput("filter_var_2",
+                    label = "Filter by numeric variable",
+                    choices = c("Select a variable" = "", numeric_vars)),
+        
+        # slider for filter var 2
+        conditionalPanel('input.filter_var_2 !== ""',
+                         uiOutput("range_var_2_ui")
+        ),
+        
+        # action button for subsetting data
+        actionButton("filter_button",
+                     "Filter Data!")
+      )
     ),
     
-    mainPanel(
-      
+    # Main area with tabs (changes with tab)
+    column(
+      width = 9,
+      navset_tab(
+        id = "main_tabs",
+        selected = "About App",
+        
+        tabPanel("Raw Data",
+          h4("Tab 1 content")
+        ),
+        
+        tabPanel("Data Exploration",
+          h4("Tab 2 content")
+        ),
+        
+        tabPanel("About App",
+          HTML('<h2>This app allows users to browse a dataset of synthetic phone usage behavior.</h2>
+                <p>
+                  The dataset is from
+                  <a href="https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset/data" rel="noopener noreferrer">Kaggle</a>
+                  and contains usage data like <strong>battery drain</strong>, <strong>screen on time</strong>, <strong>apps installed</strong>, and more.
+                  The data also includes <strong>simulated demographic information</strong> to further subset analysis.
+                </p>
+                
+                <p>
+                  <strong>Important:</strong> It is <strong>NOT REAL</strong> and is purely a <strong>toy dataset</strong> I chose for this application.
+                </p>
+                
+                <p>
+                  You can view and download the raw/subsetted data via the <strong>"Raw Data"</strong> tab.
+                  There are pre-made graphs and numerical summaries available in the <strong>"Data Exploration"</strong> tab, which can be customized further.
+                </p>
+                
+                <p>
+                  I rushed to get this done, so it’s not my best work.
+                  I <strong>used an LLM</strong> (GPT-5.4 Nano) to search the <em>Shiny</em>/<em>bslib</em> documentation, which should explain why there’s a
+                  hodgepodge of bslib and stock Shiny UI elements.
+                  <strong>The app design and logic are all my own.</strong>
+                </p>
+                
+                <p>
+                  My planning document (with version history) is linked
+                  <a href="https://docs.google.com/document/d/1kiX-CtG-5Y56IHK-flUB6jmYweiX84sbeAxlZh63VDg/edit?usp=sharing" rel="noopener noreferrer">here</a>.
+                </p>
+                
+                <div>
+                  <img src="IMAGE_URL_HERE" alt="App screenshot" />
+                </div>'
+               ),
+        )
+      )
     )
   )
 )
