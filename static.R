@@ -1,5 +1,6 @@
 suppressPackageStartupMessages(library(tidyverse))
 library(stringr)
+library(reshape2)
 
 # import data
 phone_raw <- read.csv("user_behavior_dataset.csv")
@@ -22,7 +23,7 @@ phone <- phone_raw |>
 
 # NUMERICAL SUMMARIES
 # using string name of column to prep for implementing in shiny
-user_cat_var <- "age"
+user_cat_var <- "gender"
 user_cat_var_title <- str_to_title(user_cat_var)
 
 # Device type contingency table
@@ -151,10 +152,39 @@ scatter <- ggplot(phone, aes(x = app_usage,
 
 scatter
 
+# Box plot of SOT by age:
+boxplot <- ggplot(phone, aes(x = get(user_cat_var),
+                             fill = get(user_cat_var),
+                             y = screen_on_time)) +
+           geom_boxplot() +
+           labs(title = "Screen on Time",
+                subtitle = paste("By", user_cat_var),
+                x = user_cat_var_title,
+                y = "Screen on Time (Hours/day)",
+                fill = user_cat_var_title) +
+           theme_minimal() +
+           scale_y_continuous(breaks = seq(0, 13, by = 1))
 
+boxplot
 
+# correlation heatmap
+corr_df <- phone |>
+           select(all_of(numeric_vars)) |>
+           cor() |>
+           round(2) |>
+           melt()
 
+heatmap <- ggplot(corr_df, aes(x = Var1,
+                               y = Var2,
+                               fill = value)) +
+           geom_tile() +
+           geom_text(aes(Var2, Var1, label = value), color = "white", size = 8) +
+           labs(title = "Correlation Between Numeric Variables",
+                x = NULL,
+                y = NULL,
+                fill = "Correlation")
 
+heatmap
 
 
 
