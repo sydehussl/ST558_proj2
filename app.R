@@ -4,6 +4,7 @@ library(forcats)
 library(shinyalert)
 library(bslib)
 library(reshape2)
+library(shinycssloaders)
 
 # import data
 phone_raw <- read.csv("user_behavior_dataset.csv")
@@ -39,7 +40,13 @@ ui <- fluidPage(
     column(
       width = 3,
       wellPanel(
-        h4("Filtering Data"),
+        h4("Filter Data"),
+        
+        # user os checkboxes
+        checkboxGroupInput("os_subset",
+                           label = "User Operating System",
+                           choices = levels(phone$os),
+                           selected = levels(phone$os)),
         
         # user age checkboxes
         checkboxGroupInput("age_subset",
@@ -80,7 +87,7 @@ ui <- fluidPage(
         # conditional panel for data explr. tab
         conditionalPanel(
           condition = "input.main_tabs == 'data_exploration'",
-          h4("Add a grouping variable"),
+          h4("Select Grouping Variable"),
           
           # dropdown for grouping variable
           selectInput("grp_var",
@@ -89,15 +96,19 @@ ui <- fluidPage(
                                   "Gender" = "gender",
                                   "User Behavior Class" = "behavior_class")),
           
-          # toggle for showing numeric summaries
-          checkboxInput("show_num_summaries",
-                        "Show Numeric Summaries",
-                        value = TRUE),
-          
-          # toggle for showing graphs
-          checkboxInput("show_vis_summaries",
-                        "Show Graphs + Plots",
-                        value = TRUE)
+          # checkbox for summaries shown
+          checkboxGroupInput("summary_checkbox",
+                             "Summary Options",
+                             choices = c("Show Numeric Summaries" = "num_sums",
+                                         "Show Graphs" = "graphs"),
+                             selected = "graphs"),
+        ),
+        
+        # data dictionary checkbox
+        conditionalPanel(
+          condition = "input.main_tabs == 'raw_data'",
+          checkboxInput("show_dictionary",
+                        "Show Variable Dictionary")
         )
       )
     ),
@@ -107,81 +118,127 @@ ui <- fluidPage(
       width = 9,
       navset_tab(
         id = "main_tabs",
-        selected = "data_exploration",
+        selected = "about",
         
         tabPanel("Raw Data",
           value = "raw_data",
           
           # render table
-          DT::DTOutput("phone_table"),
+          shinycssloaders::withSpinner(DT::DTOutput("phone_table")),
           
-          # render download button below table cuz it looks better
+          # render download button below table bc it looks better
           downloadButton("download_table",
-                         "Download as .CSV")
+                         "Download as .CSV"),
+          
+          # show data dictionary
+          conditionalPanel(
+            'input.show_dictionary',
+            HTML("<h3> Variable Dictionary<h3>
+                  <p>
+                  <strong>os</strong> = Operating system (Android/iOS)<br>
+                  <strong>app_usage</strong> = Minutes spent on apps (per day)<br>
+                  <strong>screen_on_time</strong> = Hours spent with screen on (per day)<br>
+                  <strong>battery_drain</strong> = Battery drain (mAh/day)<br>
+                  <strong>apps_installed</strong> = Number of apps installed<br>
+                  <strong>data_usage</strong> = Mobile data usage (MB/day)<br>
+                  <strong>age</strong> = User's age range (derived)<br>
+                  <strong>gender</strong> = User's gender (Male/Female)<br>
+                  <strong>behavior_class</strong> = Behavior classification, used to simulate the data (1-5)<br>
+                  <p>
+                 ")
+          )
         ),
         
         tabPanel("Data Exploration",
           value = "data_exploration",
           
-          column(12, card(
-            headerPanel("Results"),
-            card_body(
-              conditionalPanel(
-                "input.show_num_summaries",
+          column(12,
+            # numeric summary panel
+            conditionalPanel(
+                'input.summary_checkbox.includes("num_sums")',
                 
-                fluidRow(
-                  column(2, card(card_body(tableOutput("os_distribution")))),
-                  column(4, card(card_body(tableOutput("os_two_way")))),
-                  column(6, card(card_body(DT::DTOutput("sum_table"))))
-                )
-              ),
-              
-              conditionalPanel(
-                "input.show_vis_summaries",
-                
-                fluidRow(
-                  column(4, card(card_body(plotOutput("data_bar")))),
-                  column(4, card(card_body(plotOutput("os_usage_bar")))),
-                  column(4, card(card_body(plotOutput("density")))),
-                ),
-                fluidRow(
-                  column(6, card(card_body(plotOutput("histogram")))),
-                  column(6, card(card_body(plotOutput("scatter")))),
-                ),
-                fluidRow(
-                  column(6, card(card_body(plotOutput("boxplot")))),
-                  column(6, card(card_body(plotOutput("corrmap"))))
+                card(
+                  card_body(
+                    headerPanel("Numeric Summaries"),
+                      fluidRow(
+                        column(8, 
+                          card(height = 600,
+                            card_body(shinycssloaders::withSpinner(DT::DTOutput("sum_table"))))),
+                            
+                        column(4,
+                          card(height = 600,
+                            card_body(
+                              h4("Operating System Stats"),
+                              h5("Overall"),
+                              card(card_body(shinycssloaders::withSpinner(tableOutput("os_distribution")))),
+                              h5("By Grouping Variable"),
+                              card(card_body(shinycssloaders::withSpinner(tableOutput("os_two_way"))))
+                            )
+                          )
+                        )
+                      )
+                  ),
+            )),
+          
+          # graph panel
+          conditionalPanel(
+            'input.summary_checkbox.includes("graphs")',
+            
+             card(
+                card_body(
+                  headerPanel("Graphs"),
+                      
+                    fluidRow(
+                      column(4, card(card_body(shinycssloaders::withSpinner(plotOutput("data_bar"))))),
+                      column(4, card(card_body(shinycssloaders::withSpinner(plotOutput("os_usage_bar"))))),
+                      column(4, card(card_body(shinycssloaders::withSpinner(plotOutput("density")))))
+                    ),
+                    fluidRow(
+                      column(6, card(card_body(shinycssloaders::withSpinner(plotOutput("histogram"))))),
+                      column(6, card(card_body(shinycssloaders::withSpinner(plotOutput("scatter")))))
+                    ),
+                    fluidRow(
+                      column(6, card(card_body(shinycssloaders::withSpinner(plotOutput("boxplot"))))),
+                      
+                      # show correlation heatmap if requested
+                      conditionalPanel(
+                        'input.summary_checkbox.includes("corrmap")',
+                        column(6, card(card_body(shinycssloaders::withSpinner(plotOutput("corrmap")))))
+                      )
+                    )
                 )
               )
-            ),
-          )
-        )),
+          ),
+        )
+      ),# end of data explr tab
         
         
         tabPanel("About App",
           value = "about",
-          HTML('<h2>This app allows users to browse a dataset of synthetic phone usage behavior.</h2>
+          HTML('<br/>
+          
+                <h2>This app allows users to browse a dataset of synthetic phone usage behavior.</h2>
                 <p>
                   The dataset is from
                   <a href="https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset/data" rel="noopener noreferrer">Kaggle</a>
                   and contains usage data like <strong>battery drain</strong>, <strong>screen on time</strong>, <strong>apps installed</strong>, and more.
-                  The data also includes <strong>simulated demographic information</strong> to further subset analysis.
+                  The data also includes <strong>simulated demographic information</strong> to condition the data on.
                 </p>
                 
                 <p>
-                  <strong>Important:</strong> It is <strong>NOT REAL</strong> and is purely a <strong>toy dataset</strong> I chose for this application.
+                  <strong>Important:</strong> It is <strong>NOT REAL</strong> and is purely a toy dataset I chose for this application.
                 </p>
                 
                 <p>
                   You can view and download the raw/subsetted data via the <strong>"Raw Data"</strong> tab.
                   There are pre-made graphs and numerical summaries available in the <strong>"Data Exploration"</strong> tab, which can be customized further.
+                  The controls in the <strong>sidebar</strong> can be used to filter the dataset.
                 </p>
                 
                 <p>
-                  I rushed to get this done, so it’s not my best work.
+                  I rushed to get this done, I would spend more time on UI/UX if I could have.
                   I <strong>used an LLM</strong> (GPT-5.4 Nano) to search the <em>Shiny</em>/<em>bslib</em> documentation, which should explain why there’s a
-                  hodgepodge of bslib and stock Shiny UI elements.
-                  <strong>The app design and logic are all my own.</strong>
+                  hodgepodge of bslib and stock Shiny UI elements.<strong>The app design and logic are all my own.</strong> <em>An LLM would have far better UX<em>
                 </p>
                 
                 <p>
@@ -235,11 +292,36 @@ server <- function(input, output, session) {
     }
   })
   
+  # hide correlation heatmap checkbox if graph checkbox isn't selected
+  observeEvent(input$summary_checkbox, {
+    if("graphs" %in% input$summary_checkbox) {
+      updateCheckboxGroupInput(session,
+                               "summary_checkbox",
+                               "Summary Options",
+                               choices = c("Show Numeric Summaries" = "num_sums",
+                                           "Show Graphs" = "graphs",
+                                           "Show Correlation Heatmap" = "corrmap"),
+                               selected = input$summary_checkbox)
+    } else {
+      updateCheckboxGroupInput(session,
+                               "summary_checkbox",
+                               "Summary Options",
+                               choices = c("Show Numeric Summaries" = "num_sums",
+                                           "Show Graphs" = "graphs"),
+                               # remove corrmap from options
+                               selected = setdiff(input$summary_checkbox, "corrmap"))
+    }
+  })
+  
   # filtered data frame reactive val
   phone_filter <- eventReactive(input$filter_button, {
+    # filter categorical vars
     filtered <- phone |>
-                  filter(age %in% input$age_subset, gender %in% input$gender_subset)
+                  filter(age %in% input$age_subset, 
+                         gender %in% input$gender_subset,
+                         os %in% input$os_subset)
     
+    # filter numeric 1
     if(input$filter_var_1 != "") {
       var_1 <- sym(input$filter_var_1)
       
@@ -248,6 +330,7 @@ server <- function(input, output, session) {
                          !!var_1 < input$range_var_1[2])
     }
     
+    # filter numeric 2
     if(input$filter_var_2 != "") {
       var_2 <- sym(input$filter_var_2)
       
@@ -377,7 +460,8 @@ server <- function(input, output, session) {
                                           y = data_usage)) +
       geom_point() + 
       labs(title = "Daily Data Usage by Daily App Usage",
-           subtitle = paste("Faceted by", user_cat$title),
+           subtitle = paste("Faceted by", user_cat$title,
+                            " (synthetic data reminder)"),
            x = "App Usage (Mins/day)",
            y = "Data Usage (MB/day)",) +
       theme_minimal() +
